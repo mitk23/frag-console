@@ -18,7 +18,7 @@ async def create_connector(fqdn: str, api_key: str, connector: dict[str, str]) -
     response = await http_post(endpoint, headers=headers, json=connector)
     assert response.status_code == 201
 
-    print(f"[INFO] Succeeded to create the connector: {connector}\n")
+    # print(f"[INFO] Succeeded to create the connector: {connector}\n")
 
 
 async def delete_connector(fqdn: str, api_key: str, connector_id: str) -> None:
@@ -28,4 +28,4 @@ async def delete_connector(fqdn: str, api_key: str, connector_id: str) -> None:
     response = await http_delete(endpoint, headers=headers)
     assert response.status_code == 204
 
-    print(f"[INFO] Succeeded to delete the connector: {connector_id}\n")
+    # print(f"[INFO] Succeeded to delete the connector: {connector_id}\n")

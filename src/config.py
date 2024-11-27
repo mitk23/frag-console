@@ -11,11 +11,3 @@ API_KEYS = {
 }
 
 QDRANT_URL = "http://172.26.16.10:6333"
-
-
-def qdrant_corpus_collection_name(dataset_name: str):
-    return f"{dataset_name}-test"
-
-
-def qdrant_query_collection_name(dataset_name: str):
-    return f"{dataset_name}-query-test"

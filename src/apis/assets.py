@@ -36,7 +36,7 @@ async def create_asset(fqdn: str, api_key: str, asset: dict[str, Any]) -> None:
     response = await http_post(endpoint, headers=headers, json=asset)
     assert response.status_code == 201
 
-    print(f"[INFO] Succeeded to create the asset: {asset}\n")
+    # print(f"[INFO] Succeeded to create the asset: {asset}\n")
 
 
 async def delete_asset(fqdn: str, api_key: str, asset_title: str) -> None:
@@ -48,4 +48,4 @@ async def delete_asset(fqdn: str, api_key: str, asset_title: str) -> None:
     response = await http_delete(endpoint, headers=headers)
     assert response.status_code == 204
 
-    print(f"[INFO] Succeeded to delete the asset: {asset_title}\n")
+    # print(f"[INFO] Succeeded to delete the asset: {asset_title}\n")

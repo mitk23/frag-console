@@ -8,7 +8,8 @@
 		"TZ": "Asia/Tokyo"
 	},
 	"features": {
-		"ghcr.io/devcontainers-contrib/features/starship:1": {}
+		"ghcr.io/devcontainers-contrib/features/starship:1": {},
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	},
 	"customizations": {
 		"vscode": {

@@ -1,10 +1,14 @@
 import asyncio
 import json
+import os
+import pathlib
 from typing import Any
 
+from tqdm import tqdm
+
 from apis.dataspace import retrieve_knowledge
-from apis.qdrant import QdrantQueryService
-from config import API_KEYS, LOCATIONS, qdrant_query_collection_name
+from config import API_KEYS, LOCATIONS
+from load_beir import BeirRepository
 
 RETRIEVAL_PROVIDERS = ["frag-connector-01"]
 
@@ -32,17 +36,63 @@ async def retrieve_from_dataspace(
     return knowledges
 
 
-async def run_experiment(dataset_name: str, consumer_connector_name: str, top_k: int, rerank_method: str):
-    query_collection_name = qdrant_query_collection_name(dataset_name)
-    qdrant_query_service = QdrantQueryService(collection_name=query_collection_name)
+async def retrieve_beir(
+    dataset_name: str, consumer_connector_name: str, top_k: int, rerank_method: str
+) -> dict[str, dict[str, float]]:
+    repository = BeirRepository(dataset_name)
 
-    query_idx_list = range(5)
-    query_embeddings = await qdrant_query_service.fetch_embeddings(query_idx_list)
+    corpus = repository.corpus()
+    queries = repository.queries()
+    print(f"{dataset_name} | # of Documents: {len(corpus)} | # of Query: {len(queries)}")
 
-    for idx, embedding in query_embeddings.items():
-        await retrieve_from_dataspace(
-            connector_name=consumer_connector_name, embedding=embedding, top_k=top_k, rerank_method=rerank_method
+    query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(len(queries)))
+
+    qrel_run: dict[str, dict[str, float]] = {}
+    # try:
+    #     tasks: list[asyncio.Task] = []
+    #     async with asyncio.TaskGroup() as tg:
+    #         for query_id, embedding in query_embeddings_dict.items():
+    #             task = tg.create_task(
+    #                 retrieve_from_dataspace(
+    #                     connector_name=consumer_connector_name,
+    #                     embedding=embedding,
+    #                     top_k=top_k,
+    #                     rerank_method=rerank_method,
+    #                     show_result=False,
+    #                 )
+    #             )
+    #             tasks.append(task)
+    # except* Exception as err:
+    #     print(f"{err.exceptions=}")
+
+    # for idx, query_id in enumerate(query_embeddings_dict.keys()):
+    #     knowledges = tasks[idx].result()
+
+    #     qrel_run[query_id] = {
+    #         repository.find_document_id_by_index(int(knowledge["id"])): knowledge["score"] for knowledge in knowledges
+    #     }
+
+    for query_id, embedding in tqdm(query_embeddings_dict.items(), desc="retrieve"):
+        knowledges = await retrieve_from_dataspace(
+            connector_name=consumer_connector_name,
+            embedding=embedding,
+            top_k=top_k,
+            rerank_method=rerank_method,
+            show_result=False,
         )
+
+        qrel_run[query_id] = {
+            repository.find_document_id_by_index(int(knowledge["id"])): knowledge["score"] for knowledge in knowledges
+        }
+    return qrel_run
+
+
+def save_run(run: dict[str, dict[str, float]], filename: str) -> None:
+    src_dir = pathlib.Path(__file__).parent.absolute()
+    output_file = os.path.join(src_dir, "outputs", filename)
+
+    with open(output_file, "w") as file:
+        json.dump(run, file, indent=2)
 
 
 async def main():
@@ -53,9 +103,21 @@ async def main():
         print("Exit")
         return
 
-    embedding = [10, 12]
+    # embedding = [10, 12]
+    # top_k = 10
+    # await retrieve_from_dataspace(connector_name=connector_name, embedding=embedding, top_k=top_k)
+
+    dataset_name = "trec-covid"
     top_k = 10
-    await retrieve_from_dataspace(connector_name=connector_name, embedding=embedding, top_k=top_k)
+    rerank_method = "cosine"
+
+    run = await retrieve_beir(
+        dataset_name=dataset_name, consumer_connector_name=connector_name, top_k=top_k, rerank_method=rerank_method
+    )
+    print(json.dumps(run, indent=2, ensure_ascii=False))
+
+    output_filename = f"{dataset_name}_run@{top_k}.json"
+    save_run(run, output_filename)
 
 
 if __name__ == "__main__":

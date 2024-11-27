@@ -32,15 +32,21 @@ async def download_asset_distribution(
 
 
 async def retrieve_knowledge(
-    fqdn: str, api_key: str, providers: list[str], embedding: list[float], top_k: int, rerank_method: str
+    fqdn: str,
+    api_key: str,
+    providers: list[str],
+    embedding: list[float],
+    top_k: int,
+    rerank_method: str,
+    return_num_knowledges: int,
 ):
     endpoint = f"{fqdn}/api/dataspace/knowledges"
     headers = {"X-Management-Api-Key": api_key}
 
     query = {
         "providers": providers,
-        "include_provider_contribution": True,
         "knowledge_rerank_method": rerank_method,
+        "return_num_knowledges": return_num_knowledges,
         "query": {
             "embedding": embedding,
             "config": {
@@ -55,7 +61,6 @@ async def retrieve_knowledge(
     assert response.status_code == 200
 
     knowledges: list[dict[str, Any]] = response.json()
-    print(f"[INFO] Succeeded to retrieve {len(knowledges)} knowledges\n")
     return knowledges
 
 
