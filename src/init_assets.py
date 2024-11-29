@@ -62,6 +62,20 @@ INIT_ASSETS = [
         "distributions": [],
         "vectors": {"has_metadata": {}, "has_id": ["3", "4"]},
     },
+    {
+        "title": "beir-nq",
+        "description": "BEIR: Natural Questions",
+        "usage_policy": {"security_level": "public"},
+        "distributions": [],
+        "vectors": {"has_metadata": {}, "has_id": ["*"]},
+    },
+    {
+        "title": "beir-trec-covid",
+        "description": "BEIR: TREC Covid",
+        "usage_policy": {"security_level": "public"},
+        "distributions": [],
+        "vectors": {"has_metadata": {}, "has_id": ["*"]},
+    },
 ]
 
 

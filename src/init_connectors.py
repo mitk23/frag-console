@@ -24,7 +24,7 @@ async def init_connectors(connector_name: str) -> None:
     for connector in INIT_CONNECTORS[connector_name]:
         await create_connector(fqdn, api_key, connector)
 
-    print(f"[INFO] Completed to create {len(INIT_CONNECTORS[connector_name])} assets")
+    # print(f"[INFO] Completed to create {len(INIT_CONNECTORS[connector_name])} connectors")
 
 
 async def main():
