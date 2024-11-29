@@ -36,9 +36,9 @@ async def retrieve_knowledge(
     api_key: str,
     providers: list[str],
     embedding: list[float],
+    return_num_knowledges: int,
     top_k: int,
     rerank_method: str,
-    return_num_knowledges: int,
 ):
     endpoint = f"{fqdn}/api/dataspace/knowledges"
     headers = {"X-Management-Api-Key": api_key}

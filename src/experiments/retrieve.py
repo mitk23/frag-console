@@ -27,9 +27,6 @@ async def retrieve_from_dataspace(
         rerank_method=config.EXPERIMENT_RERANK_METHOD,
         return_num_knowledges=config.EXPERIMENT_NUM_RETURN_KNOWLEDGES,
     )
-    for knowledge in knowledges:
-        print(f"{knowledge['id']} | {knowledge['score']} | {knowledge['provider']}")
-
     return knowledges
 
 
@@ -37,13 +34,14 @@ async def retrieve(consumer_index: Literal[1, 2, 3] = 1) -> dict[str, dict[str, 
     repository = BeirRepository(config.EXPERIMENT_DATASET_NAME)
 
     queries = repository.queries()
-    # query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(len(queries)))
-    query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(10))
+    query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(len(queries)))
+    # query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(10))
 
-    providers = [
-        f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{idx}"
-        for idx in range(config.EXPERIMENT_NUM_CONSUMERS + 1, config.EXPERIMENT_NUM_CONNECTORS + 1)
-    ]
+    # providers = [
+    #     f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{idx}"
+    #     for idx in range(config.EXPERIMENT_NUM_CONSUMERS + 1, config.EXPERIMENT_NUM_CONNECTORS + 1)
+    # ]
+    providers = [f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{config.EXPERIMENT_NUM_CONSUMERS + 1}"]
 
     run_trec: dict[str, dict[str, float]] = {}
     for query_id, embedding in tqdm(query_embeddings_dict.items(), desc="query"):
@@ -78,7 +76,8 @@ async def main():
 
     run_trec = await retrieve(consumer_index=consumer_index)
 
-    trec_filename = f"{config.EXPERIMENT_DATASET_NAME}_run_top-{config.EXPERIMENT_TOP_K}_rerank-{config.EXPERIMENT_RERANK_METHOD}_return-{config.EXPERIMENT_NUM_RETURN_KNOWLEDGES}.json"
+    # trec_filename = f"{config.EXPERIMENT_DATASET_NAME}_run_top-{config.EXPERIMENT_TOP_K}_rerank-{config.EXPERIMENT_RERANK_METHOD}_return-{config.EXPERIMENT_NUM_RETURN_KNOWLEDGES}.json"
+    trec_filename = f"nq_run@{config.EXPERIMENT_NUM_RETURN_KNOWLEDGES}.json"
 
     save_run_trec(run_trec, trec_filename)
     print(f"[INFO] Completed to save retrieval run to [{trec_filename}]")

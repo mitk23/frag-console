@@ -3,14 +3,14 @@ import asyncio
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import CollectionInfo, InitFrom, PointIdsList
 
-QDRANT_URL = "http://172.26.16.10:6333"
+from experiments import config
 
 
 class QdrantQueryService:
     def __init__(self, collection_name: str):
         self.collection_name = collection_name
 
-        self.client = AsyncQdrantClient(url=QDRANT_URL)
+        self.client = AsyncQdrantClient(url=config.VECTOR_DB_URL)
 
     async def get_collection_info(self) -> CollectionInfo:
         return await self.client.get_collection(self.collection_name)

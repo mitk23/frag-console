@@ -52,7 +52,7 @@ class BeirRepository:
         # queries: dict[query ID, query text]
         return self.__queries
 
-    def qrels(self) -> dict[str, dict[str, str]]:
+    def qrels(self) -> dict[str, dict[str, float]]:
         # qrels: dict[query ID, dict[doc ID, relation]]
         return self.__qrels
 
