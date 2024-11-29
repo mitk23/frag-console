@@ -5,6 +5,7 @@ app/core/configs/connectors.json
 beir/
 outputs/
 envs/
+envs.bak/
 compose.experiment.yaml
 
 # https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore

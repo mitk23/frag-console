@@ -3,19 +3,20 @@ import os
 import yaml
 
 from experiments import config
+from experiments.config import ExperimentSettings
 
 
 def generate_compose(n_containers: int = config.EXPERIMENT_NUM_CONNECTORS) -> None:
     services = {}
     for idx in range(1, n_containers + 1):
-        connector_name = f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{idx}"
+        connector_name = ExperimentSettings.get_connector_name(connector_index=idx)
 
         services[connector_name] = {
             "image": config.EXPERIMENT_CONNECTOR_IMAGE,
             "container_name": f"frag-{connector_name}",
             "env_file": os.path.join("src/experiments/envs", f"{connector_name}.env"),
             "restart": "unless-stopped",
-            "ports": [f"{config.EXPERIMENT_CONNECTOR_BASE_PORT + idx}:8000"],
+            "ports": [f"{ExperimentSettings.get_connector_port(connector_index=idx)}:8000"],
         }
 
     compose = {"services": services}

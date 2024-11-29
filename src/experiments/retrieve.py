@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import os
 import pathlib
@@ -8,6 +9,7 @@ from tqdm import tqdm
 
 from apis.dataspace import retrieve_knowledge
 from experiments import config
+from experiments.config import ExperimentSettings
 from load_beir import BeirRepository
 
 
@@ -16,7 +18,7 @@ async def retrieve_from_dataspace(
     providers: list[str],
     embedding: list[float],
 ) -> list[dict[str, Any]]:
-    fqdn = config.EXPERIMENT_CONNECTOR_LOCATIONS[consumer_index]
+    fqdn = ExperimentSettings.get_connector_location(consumer_index)
 
     knowledges = await retrieve_knowledge(
         fqdn,
@@ -30,18 +32,22 @@ async def retrieve_from_dataspace(
     return knowledges
 
 
-async def retrieve(consumer_index: Literal[1, 2, 3] = 1) -> dict[str, dict[str, float]]:
+async def retrieve(
+    consumer_index: Literal[1, 2, 3] = 1, n_queries: int = -1, providers: list[str] | None = None
+) -> dict[str, dict[str, float]]:
     repository = BeirRepository(config.EXPERIMENT_DATASET_NAME)
 
-    queries = repository.queries()
-    query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(len(queries)))
-    # query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(10))
+    if n_queries < 0:
+        queries = repository.queries()
+        query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(len(queries)))
+    else:
+        query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(n_queries))
 
-    # providers = [
-    #     f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{idx}"
-    #     for idx in range(config.EXPERIMENT_NUM_CONSUMERS + 1, config.EXPERIMENT_NUM_CONNECTORS + 1)
-    # ]
-    providers = [f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{config.EXPERIMENT_NUM_CONSUMERS + 1}"]
+    if providers is None:
+        providers = [
+            ExperimentSettings.get_connector_name(connector_index=idx)
+            for idx in range(config.EXPERIMENT_NUM_CONSUMERS + 1, config.EXPERIMENT_NUM_CONNECTORS + 1)
+        ]
 
     run_trec: dict[str, dict[str, float]] = {}
     for query_id, embedding in tqdm(query_embeddings_dict.items(), desc="query"):
@@ -64,22 +70,20 @@ def save_run_trec(run: dict[str, dict[str, float]], trec_filename: str) -> None:
 
 
 async def main():
-    consumer_index = int(
-        input(
-            f"Which consumer to request retrieval? (low: {config.EXPERIMENT_LOW_TRUST_CONNECTOR_INDEX}, medium: {config.EXPERIMENT_MEDIUM_TRUST_CONNECTOR_INDEX}, high: {config.EXPERIMENT_HIGH_TRUST_CONNECTOR_INDEX}): "
-        )
-    )
+    consumer_index = int(input("Which consumer to request retrieval? (low: 1, medium: 2, high: 3): "))
 
     if consumer_index not in {1, 2, 3}:
         print("Exit")
         return
 
-    run_trec = await retrieve(consumer_index=consumer_index)
+    n_queries = -1
+    providers = None
 
-    # trec_filename = f"{config.EXPERIMENT_DATASET_NAME}_run_top-{config.EXPERIMENT_TOP_K}_rerank-{config.EXPERIMENT_RERANK_METHOD}_return-{config.EXPERIMENT_NUM_RETURN_KNOWLEDGES}.json"
-    trec_filename = f"nq_run@{config.EXPERIMENT_NUM_RETURN_KNOWLEDGES}.json"
+    run_trec = await retrieve(consumer_index, n_queries=n_queries, providers=providers)
 
+    trec_filename = f"exp1_{config.EXPERIMENT_DATASET_NAME}_{datetime.date.today()}.json"
     save_run_trec(run_trec, trec_filename)
+
     print(f"[INFO] Completed to save retrieval run to [{trec_filename}]")
 
 

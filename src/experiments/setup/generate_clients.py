@@ -5,6 +5,7 @@ import sys
 from keycloak import KeycloakAdmin, KeycloakOpenIDConnection
 
 from experiments import config
+from experiments.config import ExperimentSettings
 
 connection = KeycloakOpenIDConnection(
     server_url=config.OAUTH_SERVER_URL,
@@ -14,10 +15,6 @@ connection = KeycloakOpenIDConnection(
     client_id="admin-cli",
 )
 admin = KeycloakAdmin(connection=connection)
-
-
-def generate_client_id(index: int) -> str:
-    return f"{config.EXPERIMENT_CONNCTOR_NAME_PREFIX}{index}"
 
 
 def get_client(client_uuid: str) -> dict[str, str]:
@@ -66,7 +63,7 @@ def create_experiment_clients(n_clients: int = 10):
     client_secret_dict: dict[str, str] = {}
 
     for idx in range(1, n_clients + 1):
-        client_id = generate_client_id(index=idx)
+        client_id = ExperimentSettings.get_connector_name(connector_index=idx)
 
         new_client_uuid = create_client(client_id)
         new_client = get_client(new_client_uuid)
@@ -78,7 +75,7 @@ def create_experiment_clients(n_clients: int = 10):
 
 def delete_experiment_clients(n_clients: int = 10):
     for idx in range(1, n_clients + 1):
-        client_id = generate_client_id(index=idx)
+        client_id = ExperimentSettings.get_connector_name(connector_index=idx)
 
         delete_client(client_id)
 
