@@ -1,7 +1,8 @@
 import asyncio
+from typing import Any
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import CollectionInfo, InitFrom, PointIdsList
+from qdrant_client.models import CollectionInfo, InitFrom, PointIdsList, QueryResponse, ScoredPoint, SearchParams
 
 from experiments import config
 
@@ -39,6 +40,31 @@ class QdrantQueryService:
             wait=False,
         )
         return update_result
+
+    async def search_nearest(
+        self, embedding: list[float], return_num_knowledges: int, exact_search: bool = False
+    ) -> list[dict[str, Any]]:
+        response: QueryResponse = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=embedding,
+            limit=return_num_knowledges,
+            with_vectors=True,
+            with_payload=True,
+            search_params=SearchParams(exact=exact_search),
+        )
+        scored_points: list[ScoredPoint] = response.points
+
+        knowledges = [
+            {
+                "id": point.id,
+                "score": point.score,
+                "embedding": point.vector,
+                "metadata": point.payload,
+                "text": point.payload["text"],
+            }
+            for point in scored_points
+        ]
+        return knowledges
 
 
 async def test_copy_collection():
