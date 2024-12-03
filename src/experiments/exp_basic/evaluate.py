@@ -15,7 +15,7 @@ def main():
     qrels_dict = repository.qrels()
     qrels = Qrels(qrels_dict)
 
-    src_dir = pathlib.Path(__file__).parent.parent.absolute()
+    src_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
     run_filename_dict = {
         "baseline": f"exp1_{dataset_name}_baseline.json",
         "baseline-exact": f"exp1_{dataset_name}_baseline-exact.json",

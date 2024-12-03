@@ -8,7 +8,7 @@ from typing import Literal
 from tqdm import tqdm
 
 from experiments import config
-from experiments.config import ExperimentSettings
+from experiments.config import ExperimentConfig
 from experiments.retrieve import retrieve_from_dataspace
 from load_beir import BeirRepository
 
@@ -26,7 +26,7 @@ async def retrieve(
 
     if providers is None:
         providers = [
-            ExperimentSettings.get_connector_name(connector_index=idx)
+            ExperimentConfig.get_connector_name(connector_index=idx)
             for idx in range(config.EXPERIMENT_NUM_CONSUMERS + 1, config.EXPERIMENT_NUM_CONNECTORS + 1)
         ]
 
