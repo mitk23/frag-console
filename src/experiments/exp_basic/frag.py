@@ -1,22 +1,16 @@
 import asyncio
-import datetime
-import json
-import os
-import pathlib
-from typing import Literal
 
 from tqdm import tqdm
 
-from experiments import config
-from experiments.config import ExperimentConfig
-from experiments.retrieve import retrieve_from_dataspace
+from experiments import deploy
+from experiments.config import BaseExperimentConfig
+from experiments.exp_basic.config import ExperimentConfig
+from experiments.retrieve import retrieve_from_dataspace, save_retrieve_result
 from load_beir import BeirRepository
 
 
-async def retrieve(
-    consumer_index: Literal[1, 2, 3] = 1, n_queries: int = -1, providers: list[str] | None = None
-) -> dict[str, dict[str, float]]:
-    repository = BeirRepository(config.EXPERIMENT_DATASET_NAME)
+async def retrieve(exp_config: BaseExperimentConfig, n_queries: int = -1) -> dict[str, dict[str, float]]:
+    repository = BeirRepository(dataset_name=exp_config.DATASET_NAME, db_url=exp_config.vector_db_url())
 
     if n_queries < 0:
         queries = repository.queries()
@@ -24,49 +18,36 @@ async def retrieve(
     else:
         query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(n_queries))
 
-    if providers is None:
-        providers = [
-            ExperimentConfig.get_connector_name(connector_index=idx)
-            for idx in range(config.EXPERIMENT_NUM_CONSUMERS + 1, config.EXPERIMENT_NUM_CONNECTORS + 1)
-        ]
+    providers = [exp_config.connector_name(index) for index in exp_config.provider_index_range()]
 
-    run_trec: dict[str, dict[str, float]] = {}
+    run: dict[str, dict[str, float]] = {}
     for query_id, embedding in tqdm(query_embeddings_dict.items(), desc="query"):
         knowledges = await retrieve_from_dataspace(
-            consumer_index=consumer_index, providers=providers, embedding=embedding
+            consumer_index=1, providers=providers, embedding=embedding, exp_config=exp_config
         )
 
-        run_trec[query_id] = {
+        run[query_id] = {
             repository.find_document_id_by_index(int(knowledge["id"])): knowledge["score"] for knowledge in knowledges
         }
-    return run_trec
+    return run
 
 
-def save_run_trec(run: dict[str, dict[str, float]], trec_filename: str) -> None:
-    src_dir = pathlib.Path(__file__).parent.parent.absolute()
-    output_file = os.path.join(src_dir, "outputs", trec_filename)
+async def main(exp_config: BaseExperimentConfig):
+    n_queries = int(input("# of queries? (default: -1): "))
 
-    with open(output_file, "w") as file:
-        json.dump(run, file, indent=2)
+    run = await retrieve(exp_config, n_queries=n_queries)
 
+    out_filename = f"exp1_{exp_config.DATASET_NAME}_frag.json"
+    save_retrieve_result(run, out_filename)
 
-async def main():
-    consumer_index = int(input("Which consumer to request retrieval? (low: 1, medium: 2, high: 3): "))
-
-    if consumer_index not in {1, 2, 3}:
-        print("Exit")
-        return
-
-    n_queries = -1
-    providers = None
-
-    run_trec = await retrieve(consumer_index, n_queries=n_queries, providers=providers)
-
-    trec_filename = f"exp1_{config.EXPERIMENT_DATASET_NAME}_{datetime.date.today()}.json"
-    save_run_trec(run_trec, trec_filename)
-
-    print(f"[INFO] Completed to save retrieval run to [{trec_filename}]")
+    print(f"[INFO] Completed to save retrieval run to [{out_filename}]")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    exp_config = ExperimentConfig()
+
+    rebuild_env = input("Rebuild experiment environment? (y/n): ")
+    if rebuild_env in {"y", "Y"}:
+        asyncio.run(deploy.main(exp_config))
+
+    asyncio.run(main(exp_config))

@@ -4,24 +4,14 @@ import sys
 
 from keycloak import KeycloakAdmin, KeycloakOpenIDConnection
 
-from experiments import config
-from experiments.config import ExperimentSettings
-
-connection = KeycloakOpenIDConnection(
-    server_url=config.OAUTH_SERVER_URL,
-    realm_name="frag",
-    username="frag-admin",
-    password="frag-admin",
-    client_id="admin-cli",
-)
-admin = KeycloakAdmin(connection=connection)
+from experiments.config import BaseExperimentConfig
 
 
-def get_client(client_uuid: str) -> dict[str, str]:
+def get_client(admin: KeycloakAdmin, client_uuid: str) -> dict[str, str]:
     return admin.get_client(client_uuid)
 
 
-def create_client(client_id: str) -> str:
+def create_client(admin: KeycloakAdmin, client_id: str) -> str:
     new_client = {
         "clientId": client_id,
         "enabled": True,
@@ -44,7 +34,7 @@ def create_client(client_id: str) -> str:
     return created_client_uuid
 
 
-def delete_client(client_id: str):
+def delete_client(admin: KeycloakAdmin, client_id: str):
     client_uuid = admin.get_client_id(client_id)
     if client_uuid is None:
         return
@@ -59,44 +49,42 @@ def delete_client(client_id: str):
     print(f"[INFO] Succeeded to delete client [{client_id}]")
 
 
-def create_experiment_clients(n_clients: int = 10):
+def create_experiment_clients(admin: KeycloakAdmin, exp_config: BaseExperimentConfig):
     client_secret_dict: dict[str, str] = {}
 
-    for idx in range(1, n_clients + 1):
-        client_id = ExperimentSettings.get_connector_name(connector_index=idx)
+    for index in range(1, exp_config.n_connectors() + 1):
+        client_id = exp_config.connector_name(index)
 
-        new_client_uuid = create_client(client_id)
-        new_client = get_client(new_client_uuid)
+        new_client_uuid = create_client(admin, client_id)
+        new_client = get_client(admin, new_client_uuid)
 
         client_secret_dict[client_id] = new_client["secret"]
 
     return client_secret_dict
 
 
-def delete_experiment_clients(n_clients: int = 10):
-    for idx in range(1, n_clients + 1):
-        client_id = ExperimentSettings.get_connector_name(connector_index=idx)
+def delete_experiment_clients(admin: KeycloakAdmin, exp_config: BaseExperimentConfig):
+    for index in range(1, exp_config.n_connectors() + 1):
+        client_id = exp_config.connector_name(index)
 
-        delete_client(client_id)
+        delete_client(admin, client_id)
 
 
-def generate_clients(n_clients: int = config.EXPERIMENT_NUM_CONNECTORS):
-    delete_experiment_clients(n_clients=n_clients)
+def main(exp_config: BaseExperimentConfig):
+    connection = KeycloakOpenIDConnection(
+        server_url=exp_config.OAUTH_SERVER_URL,
+        realm_name="frag",
+        username="frag-admin",
+        password="frag-admin",
+        client_id="admin-cli",
+    )
+    admin = KeycloakAdmin(connection=connection)
 
-    client_secret_dict = create_experiment_clients(n_clients)
+    delete_experiment_clients(admin, exp_config)
+    client_secret_dict = create_experiment_clients(admin, exp_config)
 
-    clients_filename = os.path.join(config.EXPERIMENT_ENV_DIR, "clients.json")
+    clients_filename = os.path.join(exp_config.ENV_DIR, "clients.json")
     with open(clients_filename, "w") as file:
         json.dump(client_secret_dict, file, indent=2)
 
-    print(f"[INFO] Generated {n_clients} clients. Client secrets are saved to [{clients_filename}].")
-
-
-def main():
-    n_clients = int(input("# of Connectors: "))
-
-    generate_clients(n_clients=n_clients)
-
-
-if __name__ == "__main__":
-    main()
+    print(f"[INFO] Generated {exp_config.n_connectors()} clients. Client secrets are saved to [{clients_filename}].")

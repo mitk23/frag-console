@@ -2,34 +2,23 @@ import os
 
 import yaml
 
-from experiments import config
-from experiments.config import ExperimentSettings
+from experiments.config import BaseExperimentConfig
 
 
-def generate_compose(n_containers: int = config.EXPERIMENT_NUM_CONNECTORS) -> None:
+def main(exp_config: BaseExperimentConfig) -> None:
     services = {}
-    for idx in range(1, n_containers + 1):
-        connector_name = ExperimentSettings.get_connector_name(connector_index=idx)
+    for connector_index in range(1, exp_config.n_connectors() + 1):
+        connector_name = exp_config.connector_name(connector_index)
 
         services[connector_name] = {
-            "image": config.EXPERIMENT_CONNECTOR_IMAGE,
+            "image": exp_config.CONNECTOR_IMAGE,
             "container_name": f"frag-{connector_name}",
             "env_file": os.path.join("src/experiments/envs", f"{connector_name}.env"),
             "restart": "unless-stopped",
-            "ports": [f"{ExperimentSettings.get_connector_port(connector_index=idx)}:8000"],
+            "ports": [f"{exp_config.connector_port(connector_index)}:8000"],
         }
 
     compose = {"services": services}
 
     with open("compose.experiment.yaml", "w") as file:
         yaml.safe_dump(compose, file)
-
-
-def main():
-    n_containers = int(input("# of Connectors: "))
-
-    generate_compose(n_containers=n_containers)
-
-
-if __name__ == "__main__":
-    main()

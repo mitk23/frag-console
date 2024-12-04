@@ -1,17 +1,15 @@
 import asyncio
-import json
-import os
-import pathlib
 
 from tqdm import tqdm
 
-from experiments import config
-from experiments.retrieve import retrieve_from_qdrant
+from experiments.config import BaseExperimentConfig
+from experiments.exp_basic.config import ExperimentConfig
+from experiments.retrieve import retrieve_from_qdrant, save_retrieve_result
 from load_beir import BeirRepository
 
 
-async def retrieve_direct(n_queries: int = -1, exact_search: bool = False) -> dict[str, dict[str, float]]:
-    repository = BeirRepository(config.EXPERIMENT_DATASET_NAME)
+async def retrieve(exp_config: BaseExperimentConfig, n_queries: int = -1) -> dict[str, dict[str, float]]:
+    repository = BeirRepository(exp_config.DATASET_NAME, db_url=exp_config.vector_db_url())
 
     if n_queries < 0:
         queries = repository.queries()
@@ -19,34 +17,27 @@ async def retrieve_direct(n_queries: int = -1, exact_search: bool = False) -> di
     else:
         query_embeddings_dict = await repository.find_query_embeddings_by_index(query_indices=range(n_queries))
 
-    run_trec: dict[str, dict[str, float]] = {}
+    run: dict[str, dict[str, float]] = {}
     for query_id, embedding in tqdm(query_embeddings_dict.items(), desc="query"):
-        knowledges = await retrieve_from_qdrant(embedding=embedding, exact_search=exact_search)
+        knowledges = await retrieve_from_qdrant(embedding=embedding, exp_config=exp_config)
 
-        run_trec[query_id] = {
+        run[query_id] = {
             repository.find_document_id_by_index(int(knowledge["id"])): knowledge["score"] for knowledge in knowledges
         }
-    return run_trec
+    return run
 
 
-def save_run_trec(run: dict[str, dict[str, float]], trec_filename: str) -> None:
-    src_dir = pathlib.Path(__file__).parent.parent.absolute()
-    output_file = os.path.join(src_dir, "outputs", trec_filename)
+async def main(exp_config: BaseExperimentConfig):
+    n_queries = int(input("# of queries? (default: -1): "))
 
-    with open(output_file, "w") as file:
-        json.dump(run, file, indent=2)
+    run = await retrieve(exp_config, n_queries=n_queries)
 
+    out_filename = f"exp1_{exp_config.DATASET_NAME}_baseline.json"
+    save_retrieve_result(run, out_filename)
 
-async def main():
-    n_queries = -1
-
-    run_trec = await retrieve_direct(n_queries=n_queries, exact_search=False)
-
-    trec_filename = f"exp1_{config.EXPERIMENT_DATASET_NAME}_baseline.json"
-    save_run_trec(run_trec, trec_filename)
-
-    print(f"[INFO] Completed to save retrieval run to [{trec_filename}]")
+    print(f"[INFO] Completed to save retrieval run to [{out_filename}]")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    exp_config = ExperimentConfig()
+    asyncio.run(main(exp_config))

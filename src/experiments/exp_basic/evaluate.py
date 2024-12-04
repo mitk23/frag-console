@@ -3,23 +3,24 @@ import pathlib
 
 from ranx import Qrels, Run
 
-from experiments import config
+from experiments.config import BaseExperimentConfig
 from experiments.evaluate import compare_retrieval
+from experiments.exp_basic.config import ExperimentConfig
 from load_beir import BeirRepository
 
 
-def main():
-    dataset_name = config.EXPERIMENT_DATASET_NAME
+def main(exp_config: BaseExperimentConfig):
+    dataset_name = exp_config.DATASET_NAME
 
-    repository = BeirRepository(dataset_name)
+    repository = BeirRepository(dataset_name, exp_config.vector_db_url())
     qrels_dict = repository.qrels()
     qrels = Qrels(qrels_dict)
 
     src_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
     run_filename_dict = {
         "baseline": f"exp1_{dataset_name}_baseline.json",
-        "baseline-exact": f"exp1_{dataset_name}_baseline-exact.json",
-        "frag": f"exp1_{config.EXPERIMENT_DATASET_NAME}_2024-11-29.json",
+        # "baseline-exact": f"exp1_{dataset_name}_baseline-exact.json",
+        "frag": f"exp1_{dataset_name}_frag.json",
     }
     run_list = []
     for run_name, run_filename in run_filename_dict.items():
@@ -27,7 +28,7 @@ def main():
         run = Run.from_file(filename, name=run_name)
         run_list.append(run)
 
-    report = compare_retrieval(qrels, run_list)
+    report = compare_retrieval(qrels, run_list, exp_config=exp_config)
     print(report)
 
     report_k5 = compare_retrieval(qrels, run_list, k=5)
@@ -38,4 +39,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    exp_config = ExperimentConfig(dataset_name="fiqa")
+    main(exp_config)

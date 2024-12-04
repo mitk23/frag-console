@@ -1,32 +1,28 @@
 import json
 import os
 
-from experiments import config
-from experiments.config import ExperimentSettings
+from experiments.config import BaseExperimentConfig
 
 
-def read_client_secret(client_name: str) -> str:
-    with open(os.path.join(config.EXPERIMENT_ENV_DIR, "clients.json"), "r") as file:
-        clients = json.load(file)
-    return clients[client_name]
+def generate_env_file(exp_config: BaseExperimentConfig, connector_index: int) -> None:
+    connector_name = exp_config.connector_name(connector_index)
 
-
-def generate_env_file(connector_index: int) -> None:
-    connector_name = ExperimentSettings.get_connector_name(connector_index)
+    with open(os.path.join(exp_config.ENV_DIR, "clients.json"), "r") as file:
+        client_secret_dict: dict[str, str] = json.load(file)
 
     MY_CONNECTOR_NAME = connector_name
-    MY_CONNECTOR_PORT = ExperimentSettings.get_connector_port(connector_index)
-    MY_CONNECTOR_FQDN = ExperimentSettings.get_connector_location(connector_index)
-    MY_CONNECTOR_API_KEY = config.CONNECTOR_API_KEY
+    MY_CONNECTOR_PORT = exp_config.connector_port(connector_index)
+    MY_CONNECTOR_FQDN = exp_config.connector_location(connector_index)
+    MY_CONNECTOR_API_KEY = exp_config.CONNECTOR_API_KEY
 
-    OAUTH_SERVER_URL = config.OAUTH_SERVER_URL
+    OAUTH_SERVER_URL = exp_config.OAUTH_SERVER_URL
     OAUTH_REALM_NAME = "frag"
     OAUTH_CLIENT_ID = connector_name
-    OAUTH_CLIENT_SECRET = read_client_secret(client_name=connector_name)
+    OAUTH_CLIENT_SECRET = client_secret_dict[connector_name]
 
-    VECTOR_DB_SERVICE = config.VECTOR_DB_SERVICE
-    VECTOR_DB_URL = config.VECTOR_DB_URL
-    VECTOR_DB_INDEX_NAME = ExperimentSettings.get_vector_db_index_name(connector_index)
+    VECTOR_DB_SERVICE = exp_config.VECTOR_DB_SERVICE
+    VECTOR_DB_URL = exp_config.vector_db_url()
+    VECTOR_DB_INDEX_NAME = exp_config.vector_db_index_name(connector_index)
     VECTOR_DB_METADATA_TEXT_KEY = "text"
 
     ASSETS_CONFIG_PATH = "/app/core/configs/assets.json"
@@ -52,23 +48,13 @@ def generate_env_file(connector_index: int) -> None:
 {CONNECTORS_CONFIG_PATH=}
 """.replace("'", "")
 
-    env_filename = os.path.join(config.EXPERIMENT_ENV_DIR, f"{connector_name}.env")
+    env_filename = os.path.join(exp_config.ENV_DIR, f"{connector_name}.env")
     with open(env_filename, "w") as env_file:
         env_file.write(env_content)
 
 
-def generate_envs(n_containers: int = config.EXPERIMENT_NUM_CONNECTORS) -> None:
-    os.makedirs(config.EXPERIMENT_ENV_DIR, exist_ok=True)
+def main(exp_config: BaseExperimentConfig) -> None:
+    os.makedirs(exp_config.ENV_DIR, exist_ok=True)
 
-    for idx in range(1, n_containers + 1):
-        generate_env_file(connector_index=idx)
-
-
-def main():
-    n_containers = int(input("# of Connectors: "))
-
-    generate_envs(n_containers=n_containers)
-
-
-if __name__ == "__main__":
-    main()
+    for connector_index in range(1, exp_config.n_connectors() + 1):
+        generate_env_file(exp_config, connector_index)

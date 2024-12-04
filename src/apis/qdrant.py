@@ -4,14 +4,12 @@ from typing import Any
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import CollectionInfo, InitFrom, PointIdsList, QueryResponse, ScoredPoint, SearchParams
 
-from experiments import config
-
 
 class QdrantQueryService:
-    def __init__(self, collection_name: str):
+    def __init__(self, qdrant_url: str, collection_name: str):
         self.collection_name = collection_name
 
-        self.client = AsyncQdrantClient(url=config.VECTOR_DB_URL)
+        self.client = AsyncQdrantClient(url=qdrant_url)
 
     async def get_collection_info(self) -> CollectionInfo:
         return await self.client.get_collection(self.collection_name)

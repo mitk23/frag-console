@@ -15,18 +15,16 @@ def qdrant_query_collection_name(dataset_name: str):
 
 
 class BeirRepository:
-    def __init__(self, dataset_name: Literal["nq", "trec-covid"] = "nq"):
+    def __init__(self, dataset_name: Literal["fiqa", "nq", "trec-covid"], db_url: str):
         self.dataset_name = dataset_name
 
         self.__corpus, self.__queries, self.__qrels = self.load(self.dataset_name)
         self.__document_id_list = list(self.__corpus.keys())
         self.__query_id_list = list(self.__queries.keys())
 
-        self.__qdrant_service_corpus = QdrantQueryService(
-            collection_name=qdrant_corpus_collection_name(self.dataset_name)
-        )
+        self.__qdrant_service_corpus = QdrantQueryService(qdrant_url=db_url, collection_name=self.dataset_name)
         self.__qdrant_service_queries = QdrantQueryService(
-            collection_name=qdrant_query_collection_name(self.dataset_name)
+            qdrant_url=db_url, collection_name=f"{self.dataset_name}-query"
         )
 
     @staticmethod
