@@ -50,3 +50,15 @@ def save_retrieve_result(run: dict[str, dict[str, float]], out_filename: str) ->
 
     with open(output_file, "w") as file:
         json.dump(run, file, indent=2)
+
+
+def save_retrieve_latency(latency_result: dict[str, int | float], key_title: str, filename: str) -> None:
+    src_dir = pathlib.Path(__file__).parent.parent.absolute()
+    output_file = os.path.join(src_dir, "outputs", filename)
+
+    with open(output_file, "r") as file:
+        retrieve_time_dict: dict[str, float] = json.load(file)
+
+    retrieve_time_dict |= {key_title: latency_result}
+    with open(output_file, "w") as file:
+        json.dump(retrieve_time_dict, file, indent=2)

@@ -32,12 +32,20 @@ async def main(exp_config: BaseExperimentConfig):
 
     run = await retrieve(exp_config, n_queries=n_queries)
 
-    out_filename = f"exp1_{exp_config.DATASET_NAME}_baseline.json"
+    if exp_config.EXACT_SEARCH:
+        out_filename = f"exp1_{exp_config.DATASET_NAME}_baseline-exact.json"
+    else:
+        out_filename = f"exp1_{exp_config.DATASET_NAME}_baseline.json"
     save_retrieve_result(run, out_filename)
 
     print(f"[INFO] Completed to save retrieval run to [{out_filename}]")
 
 
 if __name__ == "__main__":
-    exp_config = ExperimentConfig()
+    exact_search = input("Retrieve exactly? (Disable ANN?) [y/n]: ")
+    if exact_search in {"y", "Y"}:
+        exp_config = ExperimentConfig(exact_search=True)
+    else:
+        exp_config = ExperimentConfig()
+
     asyncio.run(main(exp_config))
