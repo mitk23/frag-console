@@ -66,7 +66,7 @@ class BaseExperimentConfig:
         provider_index = connector_index - self.N_CONSUMERS
         return f"{prefix}{provider_index}"
 
-    def __initial_file_assets(self) -> list[dict[str, Any]]:
+    def initial_file_assets(self) -> list[dict[str, Any]]:
         return [
             {
                 "title": "c-asset",
@@ -111,7 +111,7 @@ class BaseExperimentConfig:
 
     def initial_assets(self, connector_index: int) -> list[dict[str, Any]]:
         vector_db_index_name = self.vector_db_index_name(connector_index)
-        initial_file_assets = self.__initial_file_assets()
+        initial_file_assets = self.initial_file_assets()
 
         vectors_asset = {
             "title": f"qdrant-{vector_db_index_name}",
