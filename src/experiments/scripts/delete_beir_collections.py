@@ -1,5 +1,4 @@
 import asyncio
-import itertools
 import json
 import os
 import pathlib
@@ -7,7 +6,6 @@ import random
 import time
 
 from tqdm import tqdm
-from tqdm.contrib import tenumerate
 
 from apis.qdrant import QdrantQueryService
 from load_beir import BeirRepository
@@ -73,38 +71,21 @@ def save_each_collection_ids(each_collection_id_list: list[list[int]], filename:
         json.dump(json_out, file)
 
 
-async def split_beir_collection(
+async def delete_beir_collection(
     qdrant_url: str,
     dataset_name: str,
     n_split: int,
-    split_seed: int | None = 42,
-    copy_wait_seconds: int = 60,
     delete_wait_seconds: int = 10,
 ):
     service = QdrantQueryService(qdrant_url, dataset_name)
 
-    each_collection_id_list = split_beir_collection_ids(qdrant_url, dataset_name, n_split, random=split_seed)
-    all_id_list = list(itertools.chain.from_iterable(each_collection_id_list))
-    all_id_set = set(all_id_list)
-    assert len(all_id_list) == len(all_id_set)
+    for i_split in range(n_split):
+        collection_name = f"{dataset_name}-{n_split}-{i_split + 1}"
+        await service.delete_collection(collection_name)
 
-    id_list_filename = f"{dataset_name}-split{n_split}_ids.json"
-    save_each_collection_ids(each_collection_id_list, id_list_filename)
-
-    for i_split, new_collection_id_list in tenumerate(each_collection_id_list, desc="split collection"):
-        new_collection_name = f"{dataset_name}-{n_split}-{i_split + 1}"
-        await service.copy_collection(new_collection_name)
-        time.sleep(copy_wait_seconds)
-
-        print(f"[{i_split + 1}/{n_split}] Copied collection")
-
-        new_service = QdrantQueryService(qdrant_url, new_collection_name)
-
-        delete_id_list = list(all_id_set - set(new_collection_id_list))
-        update_result = await new_service.delete_embeddings(delete_id_list)
         time.sleep(delete_wait_seconds)
 
-        print(f"[{i_split + 1}/{n_split}] Deleted collection | {update_result=}")
+        print(f"[{i_split + 1}/{n_split}] Deleted collection {collection_name}")
 
 
 if __name__ == "__main__":
@@ -113,19 +94,14 @@ if __name__ == "__main__":
 
     n_split_list = [32, 24, 16, 10, 8, 6, 4, 2]
 
-    split_seed = 42
-
-    copy_wait_seconds = 20
-    delete_wait_seconds = 5
+    delete_wait_seconds = 3
 
     for n_split in tqdm(n_split_list, desc="split"):
         asyncio.run(
-            split_beir_collection(
+            delete_beir_collection(
                 qdrant_url=qdrant_url,
                 dataset_name=dataset_name,
                 n_split=n_split,
-                split_seed=split_seed,
-                copy_wait_seconds=copy_wait_seconds,
                 delete_wait_seconds=delete_wait_seconds,
             )
         )

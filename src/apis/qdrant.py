@@ -25,6 +25,11 @@ class QdrantQueryService:
         )
         return is_copied
 
+    async def delete_collection(self, collection_name: str) -> bool:
+        if await self.client.collection_exists(collection_name):
+            return await self.client.delete_collection(collection_name)
+        return True
+
     async def fetch_embeddings(self, id_list: list[int]) -> dict[int, list[float]]:
         records = await self.client.retrieve(
             collection_name=self.collection_name, ids=id_list, with_payload=False, with_vectors=True
