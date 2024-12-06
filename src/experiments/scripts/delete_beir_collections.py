@@ -8,6 +8,7 @@ import time
 from tqdm import tqdm
 
 from apis.qdrant import QdrantQueryService
+from experiments.common import params
 from load_beir import BeirRepository
 
 
@@ -89,14 +90,14 @@ async def delete_beir_collection(
 
 
 if __name__ == "__main__":
-    dataset_name = "trec-covid"
-    qdrant_url = "http://172.26.16.10:6333"
+    dataset_name = params.input_dataset_name()
+    qdrant_url = "http://172.26.16.20:6333" if dataset_name == "nq" else "http://172.26.16.10:6333"
 
-    n_split_list = [32, 24, 16, 10, 8, 6, 4, 2]
+    n_split_list = [2, 4, 6, 8, 10, 16, 32]
 
-    delete_wait_seconds = 3
+    delete_wait_seconds = 10
 
-    for n_split in tqdm(n_split_list, desc="split"):
+    for n_split in tqdm(n_split_list, desc="delete"):
         asyncio.run(
             delete_beir_collection(
                 qdrant_url=qdrant_url,
