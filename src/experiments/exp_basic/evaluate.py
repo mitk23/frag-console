@@ -1,31 +1,30 @@
-import json
-import os
 import pathlib
 
 from ranx import Qrels, Run
 
-from experiments.common import evaluate, params
+from experiments.common import evaluate, params, save
 from experiments.exp_basic.config import BasicExperimentConfig
 from load_beir import BeirRepository
 
 
-def load_run_baseline(dataset_name: str, exact_search: bool = False) -> Run:
+def load_run_baseline(dataset_name: str, exact_search: bool = False) -> Run | None:
     if exact_search:
-        _fname = f"exp1_{dataset_name}_baseline-exact.json"
+        run_fname = f"exp1_{dataset_name}_baseline-exact.json"
     else:
-        _fname = f"exp1_{dataset_name}_baseline.json"
+        run_fname = f"exp1_{dataset_name}_baseline.json"
 
     src_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
-    run_fname = os.path.join(src_dir, "outputs", _fname)
+    run_path = src_dir.joinpath("outputs", run_fname)
 
-    return Run.from_file(run_fname)
+    if run_path.exists():
+        return Run.from_file(run_path)
+    return None
 
 
-def get_score_baseline(exp_config: BasicExperimentConfig, eval_cutoff: int) -> dict[str, float]:
-    repository = BeirRepository(exp_config.DATASET_NAME, exp_config.vector_db_url())
-
-    qrels = Qrels.from_dict(repository.qrels())
+def evaluate_baseline(qrels: Qrels, exp_config: BasicExperimentConfig, eval_cutoff: int) -> dict[str, float] | None:
     run = load_run_baseline(exp_config.DATASET_NAME, exp_config.EXACT_SEARCH)
+    if run is None:
+        return None
 
     scores = evaluate.evaluate(qrels, run, exp_config=exp_config, eval_cutoff=eval_cutoff)
     return scores
@@ -33,52 +32,54 @@ def get_score_baseline(exp_config: BasicExperimentConfig, eval_cutoff: int) -> d
 
 def load_run_frag(
     dataset_name: str, dataset_index: int = 1, n_request_docs: int = 20, exact_search: bool = False
-) -> Run:
+) -> Run | None:
     if exact_search:
-        _fname = f"exp1_{dataset_name}-{dataset_index}_nreq{n_request_docs}_frag-exact.json"
+        run_fname = f"exp1_{dataset_name}-{dataset_index}_nreq{n_request_docs}_frag-exact.json"
     else:
-        _fname = f"exp1_{dataset_name}-{dataset_index}_nreq{n_request_docs}_frag.json"
+        run_fname = f"exp1_{dataset_name}-{dataset_index}_nreq{n_request_docs}_frag.json"
 
     src_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
-    run_fname = os.path.join(src_dir, "outputs", _fname)
+    run_path = src_dir.joinpath("outputs", run_fname)
 
-    return Run.from_file(run_fname)
+    if run_path.exists():
+        return Run.from_file(run_path)
+    return None
 
 
-def get_score_frag(exp_config: BasicExperimentConfig, eval_cutoff: int) -> dict[str, float]:
-    repository = BeirRepository(exp_config.DATASET_NAME, exp_config.vector_db_url())
-
-    qrels = Qrels.from_dict(repository.qrels())
+def evaluate_frag(qrels: Qrels, exp_config: BasicExperimentConfig, eval_cutoff: int) -> dict[str, float] | None:
     run = load_run_frag(
         exp_config.DATASET_NAME, exp_config.DATASET_INDEX, exp_config.N_REQUEST_DOCS, exp_config.EXACT_SEARCH
     )
+    if run is None:
+        return None
 
     scores = evaluate.evaluate(qrels, run, exp_config=exp_config, eval_cutoff=eval_cutoff)
     return scores
 
 
-def average_score_frag(
-    dataset_name: str, n_dataset: int, n_request_docs: int, exact_search: bool, eval_cutoff: int
-) -> dict[str, float]:
+def evaluate_average_frag(
+    qrels: Qrels, exp_config: BasicExperimentConfig, n_dataset: int, eval_cutoff: int
+) -> dict[str, float] | None:
     metrics = evaluate.evaluation_metrics(eval_cutoff)
 
-    average_result_dict: dict[str, float] = {metric: 0 for metric in metrics}
+    average_scores: dict[str, float] = {metric: 0 for metric in metrics}
     for dataset_index in range(1, n_dataset + 1):
-        exp_config = BasicExperimentConfig(
-            dataset_name=dataset_name,
-            dataset_index=dataset_index,
-            n_request_docs=n_request_docs,
-            exact_search=exact_search,
-        )
-        scores = get_score_frag(exp_config, eval_cutoff)
-        for metric, score in scores.items():
-            average_result_dict[metric] += score
+        exp_config.DATASET_INDEX = dataset_index
+        scores = evaluate_frag(qrels, exp_config, eval_cutoff)
+        if scores is None:
+            continue
 
-    average_result_dict = {_: score / n_dataset for _, score in average_result_dict.items()}
-    return average_result_dict
+        for metric, score in scores.items():
+            average_scores[metric] += score
+
+    average_scores = {_: score / n_dataset for _, score in average_scores.items()}
+    return average_scores
 
 
 def main(exp_config: BasicExperimentConfig, n_dataset: int, output_filename: str):
+    repository = BeirRepository(exp_config.DATASET_NAME, exp_config.vector_db_url())
+    qrels = Qrels.from_dict(repository.qrels())
+
     eval_cutoff_list = [20, 10, 5, 3]
 
     evaluation_result: dict[str, dict[str, float]] = {}
@@ -90,33 +91,19 @@ def main(exp_config: BasicExperimentConfig, n_dataset: int, output_filename: str
         # ANN
         exp_config.EXACT_SEARCH = False
 
-        score_dict["baseline"] = get_score_baseline(exp_config, eval_cutoff=eval_cutoff)
-        score_dict["frag"] = average_score_frag(
-            dataset_name=exp_config.DATASET_NAME,
-            n_dataset=n_dataset,
-            n_request_docs=exp_config.N_REQUEST_DOCS,
-            exact_search=exp_config.EXACT_SEARCH,
-            eval_cutoff=eval_cutoff,
-        )
+        score_dict["baseline"] = evaluate_baseline(qrels, exp_config, eval_cutoff=eval_cutoff)
+        score_dict["frag"] = evaluate_average_frag(qrels, exp_config, n_dataset, eval_cutoff=eval_cutoff)
 
         # exact
         exp_config.EXACT_SEARCH = True
 
-        score_dict["baseline-exact"] = get_score_baseline(exp_config, eval_cutoff=eval_cutoff)
-        score_dict["frag-exact"] = average_score_frag(
-            dataset_name=exp_config.DATASET_NAME,
-            n_dataset=n_dataset,
-            n_request_docs=exp_config.N_REQUEST_DOCS,
-            exact_search=exp_config.EXACT_SEARCH,
-            eval_cutoff=eval_cutoff,
-        )
+        score_dict["baseline-exact"] = evaluate_baseline(qrels, exp_config, eval_cutoff=eval_cutoff)
+        score_dict["frag-exact"] = evaluate_average_frag(qrels, exp_config, n_dataset, eval_cutoff=eval_cutoff)
 
         evaluation_result[f"@{eval_cutoff}"] = score_dict
 
-    print(json.dumps(evaluation_result, indent=2))
-
-    with open(output_filename, "w") as file:
-        json.dump(evaluation_result, file, indent=2)
+    save.save_output(evaluation_result, output_filename)
+    print(f"[INFO] Completed to save retrieval scores to [{output_filename}]")
 
 
 if __name__ == "__main__":
@@ -126,7 +113,6 @@ if __name__ == "__main__":
 
     exp_config = BasicExperimentConfig(dataset_name=dataset_name, n_request_docs=n_request_docs)
 
-    src_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
-    output_filename = os.path.join(src_dir, "outputs", f"exp1_{dataset_name}_nreq{n_request_docs}_result.json")
+    output_filename = f"exp1_{dataset_name}_nreq{n_request_docs}_scores.json"
 
     main(exp_config, n_dataset, output_filename)

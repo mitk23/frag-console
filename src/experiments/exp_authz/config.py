@@ -10,19 +10,20 @@ class AuthzExperimentConfig(BaseExperimentConfig):
     def __init__(
         self,
         dataset_name: Literal["fiqa", "nq", "trec-covid"] = "fiqa",
-        n_request_docs: int = 10,
-        n_return_docs: int = 10,
-        security_rate: dict[str, float] = {"public": 0.6, "restricted": 0.3, "confidential": 0.1},
+        n_request_docs: int = 20,
+        security_rate: dict[str, float] = {"public": 0.8, "restricted": 0, "confidential": 0.2},
         split_seed: int = 42,
     ):
         super().__init__()
 
         self.DATASET_NAME = dataset_name
         self.N_REQUEST_DOCS = n_request_docs
-        self.N_RETURN_DOCS = n_return_docs
-
         self.security_rate = security_rate
         self.split_seed = split_seed
+
+        self.N_PROVIDERS = 4
+        self.N_RETURN_DOCS = 20
+        self.RERANK_METHOD = "naive"
 
     def vector_id_list(self, connector_index: int) -> list[str]:
         provider_index = connector_index - self.N_CONSUMERS
